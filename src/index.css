@@ -1,0 +1,329 @@
+@import "tailwindcss";
+
+/* ========================================
+   HindiLab Design System — TailwindCSS v4
+   ======================================== */
+
+@theme {
+  /* Primary Palette — Warm Coral/Orange */
+  --color-primary-50: #FFF3E0;
+  --color-primary-100: #FFE0B2;
+  --color-primary-200: #FFCC80;
+  --color-primary-300: #FFB74D;
+  --color-primary-400: #FFA726;
+  --color-primary-500: #FF6B35;
+  --color-primary-600: #F4511E;
+  --color-primary-700: #E64A19;
+  --color-primary-800: #D84315;
+  --color-primary-900: #BF360C;
+
+  /* Accent — Deep Orange / Warm Red */
+  --color-accent-400: #FF7043;
+  --color-accent-500: #FF5722;
+  --color-accent-600: #F4511E;
+
+  /* Success — Greens */
+  --color-success-400: #66BB6A;
+  --color-success-500: #4CAF50;
+  --color-success-600: #43A047;
+
+  /* Warning — Yellows */
+  --color-warning-400: #FFCA28;
+  --color-warning-500: #FFC107;
+
+  /* Error — Reds */
+  --color-error-400: #EF5350;
+  --color-error-500: #F44336;
+
+  /* Neutrals */
+  --color-surface: #FFFBF5;
+  --color-surface-raised: #FFFFFF;
+  --color-surface-overlay: rgba(255, 255, 255, 0.9);
+  --color-text-primary: #1A1A2E;
+  --color-text-secondary: #4A4A68;
+  --color-text-muted: #8E8EA0;
+  --color-border: #F0E6D9;
+  --color-border-strong: #E0D0C0;
+
+  /* Typography */
+  --font-family-english: 'Outfit', system-ui, sans-serif;
+  --font-family-hindi: 'Noto Sans Devanagari', 'Outfit', system-ui, sans-serif;
+
+  /* Shadows */
+  --shadow-card: 0 2px 12px rgba(255, 107, 53, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
+  --shadow-card-hover: 0 8px 30px rgba(255, 107, 53, 0.15), 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-elevated: 0 12px 40px rgba(255, 107, 53, 0.12), 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-button: 0 4px 14px rgba(255, 107, 53, 0.3);
+
+  /* Border Radius */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Animation durations */
+  --animate-fade-in: fade-in 0.5s ease-out;
+  --animate-slide-up: slide-up 0.5s ease-out;
+  --animate-scale-in: scale-in 0.3s ease-out;
+  --animate-bounce-in: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --animate-pulse-glow: pulse-glow 2s ease-in-out infinite;
+  --animate-wave: wave 1.2s ease-in-out infinite;
+  --animate-count-up: count-up 1.5s ease-out;
+  --animate-spin-slow: spin 3s linear infinite;
+  --animate-shake: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+/* ========================================
+   Base Styles
+   ======================================== */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-family-english);
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Hindi text class */
+.hindi-text {
+  font-family: var(--font-family-hindi);
+}
+
+/* ========================================
+   Keyframe Animations
+   ======================================== */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes bounce-in {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 107, 53, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(255, 107, 53, 0);
+  }
+}
+
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1); }
+}
+
+@keyframes recording-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.15); opacity: 0.8; }
+}
+
+@keyframes progress-fill {
+  from { stroke-dashoffset: var(--circumference); }
+  to { stroke-dashoffset: var(--offset); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes shake {
+  10%, 90% { transform: translate3d(-1px, 0, 0); }
+  20%, 80% { transform: translate3d(2px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+  40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+
+/* ========================================
+   Gradient Utilities
+   ======================================== */
+
+.gradient-primary {
+  background: linear-gradient(135deg, #FF6B35 0%, #FF8E53 50%, #FFA726 100%);
+}
+
+.gradient-hero {
+  background: linear-gradient(180deg, #FFF3E0 0%, #FFE0B2 40%, #FFCC80 100%);
+}
+
+.gradient-card-warm {
+  background: linear-gradient(135deg, #FFF8F0 0%, #FFFFFF 100%);
+}
+
+.gradient-score-excellent {
+  background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%);
+}
+
+.gradient-score-great {
+  background: linear-gradient(135deg, #FF9800 0%, #FFB74D 100%);
+}
+
+.gradient-score-good {
+  background: linear-gradient(135deg, #2196F3 0%, #64B5F6 100%);
+}
+
+.gradient-score-practice {
+  background: linear-gradient(135deg, #FF5722 0%, #FF7043 100%);
+}
+
+/* ========================================
+   Custom Component Classes
+   ======================================== */
+
+.card {
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--color-border);
+  transition: box-shadow var(--transition-normal), transform var(--transition-normal);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
+}
+
+.card-static {
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--color-border);
+}
+
+/* Mic button special styles */
+.mic-button {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-normal);
+}
+
+.mic-button.idle {
+  background: linear-gradient(135deg, #FF6B35, #FF8E53);
+  box-shadow: var(--shadow-button);
+}
+
+.mic-button.idle:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 20px rgba(255, 107, 53, 0.4);
+}
+
+.mic-button.recording {
+  background: linear-gradient(135deg, #F44336, #EF5350);
+  animation: recording-pulse 1.5s ease-in-out infinite;
+}
+
+/* Waveform bars */
+.waveform-bar {
+  width: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to top, #FF6B35, #FFA726);
+  transition: height 0.1s ease;
+}
+
+/* Score ring */
+.score-ring {
+  transform: rotate(-90deg);
+}
+
+.score-ring circle.progress {
+  transition: stroke-dashoffset 1.5s ease-out;
+}
+
+/* ========================================
+   Reduced Motion
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ========================================
+   Scrollbar Styling
+   ======================================== */
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-primary-50);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary-300);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary-400);
+}
