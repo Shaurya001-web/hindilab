@@ -401,13 +401,16 @@ router.post('/pronunciation-score', upload.single('audio'), async (req, res) => 
     res.write(JSON.stringify(scoreEvent) + '\n');
     
     // Simulate streaming mock audio
-    setTimeout(() => {
-        res.write(JSON.stringify({ type: 'audio_chunk', text: 'यह एक मॉक फीडबैक है। ', audio: null }) + '\n');
-        setTimeout(() => {
-            res.write(JSON.stringify({ type: 'audio_chunk', text: 'आपका प्रयास अच्छा था।', audio: null }) + '\n');
-            res.end();
-        }, 1000);
-    }, 1000);
+    await new Promise((resolve) => {
+      setTimeout(() => {
+          res.write(JSON.stringify({ type: 'audio_chunk', text: 'यह एक मॉक फीडबैक है। ', audio: null }) + '\n');
+          setTimeout(() => {
+              res.write(JSON.stringify({ type: 'audio_chunk', text: 'आपका प्रयास अच्छा था।', audio: null }) + '\n');
+              res.end();
+              resolve();
+          }, 1000);
+      }, 1000);
+    });
 
   } catch (error) {
     console.error('Pronunciation scoring error:', error);
