@@ -212,8 +212,7 @@ router.post('/pronunciation-score', upload.single('audio'), async (req, res) => 
 
     // Set headers for NDJSON streaming
     res.writeHead(200, {
-      'Content-Type': 'application/x-ndjson',
-      'Transfer-Encoding': 'chunked'
+      'Content-Type': 'application/x-ndjson'
     });
 
     if (process.env.SARVAM_API_KEY && process.env.MOCK_MODE !== 'true') {
@@ -271,7 +270,7 @@ router.post('/pronunciation-score', upload.single('audio'), async (req, res) => 
           readingSpeed,
           _source: 'sarvam'
         };
-        res.write(JSON.stringify(scoreEvent) + '\\n');
+        res.write(JSON.stringify(scoreEvent) + '\n');
 
         // Phase 2: Gemini Stream + TTS Chunking
         const ai = getGeminiClient();
@@ -342,7 +341,7 @@ router.post('/pronunciation-score', upload.single('audio'), async (req, res) => 
                       type: 'audio_chunk',
                       text: textChunk,
                       audio: ttsData.audios[0]
-                    }) + '\\n');
+                    }) + '\n');
                   }
                 } else {
                   console.error("Sarvam TTS chunk failed:", await ttsResponse.text());
@@ -399,13 +398,13 @@ router.post('/pronunciation-score', upload.single('audio'), async (req, res) => 
       readingSpeed: null,
       _mock: true,
     };
-    res.write(JSON.stringify(scoreEvent) + '\\n');
+    res.write(JSON.stringify(scoreEvent) + '\n');
     
     // Simulate streaming mock audio
     setTimeout(() => {
-        res.write(JSON.stringify({ type: 'audio_chunk', text: 'यह एक मॉक फीडबैक है। ', audio: null }) + '\\n');
+        res.write(JSON.stringify({ type: 'audio_chunk', text: 'यह एक मॉक फीडबैक है। ', audio: null }) + '\n');
         setTimeout(() => {
-            res.write(JSON.stringify({ type: 'audio_chunk', text: 'आपका प्रयास अच्छा था।', audio: null }) + '\\n');
+            res.write(JSON.stringify({ type: 'audio_chunk', text: 'आपका प्रयास अच्छा था।', audio: null }) + '\n');
             res.end();
         }, 1000);
     }, 1000);
