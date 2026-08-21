@@ -336,9 +336,9 @@ export const PASSAGE_CATEGORIES = {
 
 /** Difficulty metadata */
 export const READING_DIFFICULTY = {
-  easy: { label: "आसान", labelEn: "Easy", color: "#4CAF50", emoji: "🟢" },
-  medium: { label: "मध्यम", labelEn: "Medium", color: "#FF9800", emoji: "🟡" },
-  advanced: { label: "कठिन", labelEn: "Advanced", color: "#F44336", emoji: "🔴" },
+  easy: { label: "Easy", color: "#4CAF50", emoji: "🟢" },
+  medium: { label: "Medium", color: "#FF9800", emoji: "🟡" },
+  advanced: { label: "Advanced", color: "#F44336", emoji: "🔴" },
 };
 
 /**

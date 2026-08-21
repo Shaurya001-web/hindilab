@@ -23,9 +23,9 @@ export const RECORDING_STATES = {
 };
 
 export const DIFFICULTY_LABELS = {
-  easy: { label: 'आसान', color: '#4CAF50' },
-  medium: { label: 'मध्यम', color: '#FF9800' },
-  hard: { label: 'कठिन', color: '#F44336' },
+  easy: { label: 'Easy', color: '#4CAF50' },
+  medium: { label: 'Medium', color: '#FF9800' },
+  hard: { label: 'Hard', color: '#F44336' },
 };
 
 export const FEATURES = [

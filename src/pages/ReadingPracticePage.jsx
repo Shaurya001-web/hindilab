@@ -45,11 +45,10 @@ export default function ReadingPracticePage() {
   );
 
   const difficultyTabs = [
-    { key: 'all', label: 'सभी', labelEn: 'All', color: '#FF6B35' },
+    { key: 'all', label: 'All', color: '#FF6B35' },
     ...Object.entries(READING_DIFFICULTY).map(([key, val]) => ({
       key,
       label: val.label,
-      labelEn: val.labelEn,
       color: val.color,
     })),
   ];
@@ -148,8 +147,7 @@ export default function ReadingPracticePage() {
                       : { borderWidth: '1px', borderStyle: 'solid', borderColor: '#F0E6D9' }
                   }
                 >
-                  <span className="hindi-text">{tab.label}</span>
-                  <span className="ml-1 opacity-70">({tab.labelEn})</span>
+                  <span className="font-bold">{tab.label}</span>
                 </button>
               ))}
             </div>
