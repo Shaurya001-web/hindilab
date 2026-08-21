@@ -187,20 +187,20 @@ export default function ReadingTrainer({ passage, onNewPassage }) {
             />
 
             {/* Action buttons */}
-            <div className="flex flex-wrap items-center justify-center gap-3 mt-4">
+            <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3 mt-4">
               <button
                 onClick={() => isPlayingReference ? stopAudio() : playReference(passage.text)}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-white border-2 border-primary-200 text-primary-600 font-semibold text-sm hover:border-primary-400 hover:bg-primary-50 transition-all duration-200 cursor-pointer"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-white border-2 border-primary-200 text-primary-600 font-semibold text-sm hover:border-primary-400 hover:bg-primary-50 transition-all duration-200 cursor-pointer"
               >
                 <span>🔊</span>
                 <span>Listen to passage</span>
               </button>
 
-              <Button variant="primary" icon="🎤" onClick={reset}>
+              <Button variant="primary" icon="🎤" onClick={reset} className="w-full sm:w-auto">
                 <span>Try Again</span>
               </Button>
 
-              <Button variant="secondary" icon="🔄" onClick={handleNewPassage}>
+              <Button variant="secondary" icon="🔄" onClick={handleNewPassage} className="w-full sm:w-auto">
                 <span>New Passage</span>
               </Button>
             </div>

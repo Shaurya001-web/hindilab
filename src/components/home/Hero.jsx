@@ -41,14 +41,14 @@ export default function Hero() {
           </p>
 
           {/* CTA buttons */}
-          <div className="flex items-center justify-center gap-4 animate-[slide-up_0.6s_ease-out_0.35s_both]">
-            <Link to="/learn">
-              <Button size="lg" icon="✨">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 animate-[slide-up_0.6s_ease-out_0.35s_both]">
+            <Link to="/learn" className="w-full sm:w-auto">
+              <Button size="lg" icon="✨" className="w-full sm:w-auto">
                 Start Learning
               </Button>
             </Link>
-            <Link to="/learn">
-              <Button variant="secondary" size="lg" icon="👀">
+            <Link to="/learn" className="w-full sm:w-auto">
+              <Button variant="secondary" size="lg" icon="👀" className="w-full sm:w-auto">
                 See Demo
               </Button>
             </Link>

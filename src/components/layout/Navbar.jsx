@@ -35,19 +35,19 @@ export default function Navbar() {
       isScrolled ? 'border-b border-gray-100 backdrop-blur-md bg-white/80 shadow-sm' : 'bg-transparent'
     }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-16 w-full">
           
-          {/* Logo - kept for visual consistency, PillNav will be centered or placed next to it */}
-          <Link to="/" className="flex items-center gap-2 no-underline z-[100]">
-            <span className="text-xl font-bold text-text-primary ml-10">
+          {/* Logo - hidden on mobile since PillNav has its own mobile layout */}
+          <Link to="/" className="hidden md:flex items-center gap-2 no-underline z-[100] shrink-0">
+            <span className="text-xl font-bold text-text-primary ml-2 lg:ml-10">
               <span className="hindi-text text-primary-500">हिंदी</span>{' '}
               <span>Lab</span>
             </span>
           </Link>
 
           {/* Navigation Links using PillNav */}
-          <div className="flex-1 flex justify-center">
-            <div className="relative w-full max-w-xl h-full flex items-center justify-center">
+          <div className="flex-1 flex justify-center w-full">
+            <div className="relative w-full md:max-w-xl h-full flex items-center justify-center">
               <PillNav
                 logo={logoSvg}
                 logoAlt="Hindi Lab Logo"
@@ -61,9 +61,9 @@ export default function Navbar() {
             </div>
           </div>
 
-          {/* CTA */}
-          <div className="flex items-center gap-3 z-[100]">
-            <Button variant="secondary" size="sm" className="hidden sm:inline-flex">
+          {/* CTA - hidden on mobile */}
+          <div className="hidden md:flex items-center gap-3 z-[100] shrink-0">
+            <Button variant="secondary" size="sm" className="hidden lg:inline-flex">
               Sign In
             </Button>
             <Button size="sm">

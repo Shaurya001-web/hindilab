@@ -170,6 +170,10 @@ export default function PillNav({
     onMobileMenuClick?.();
   };
 
+  const closeMobileMenu = () => {
+    if (isMobileMenuOpen) toggleMobileMenu();
+  };
+
   // Set initial positions on mount
   useEffect(() => {
     const layout = () => {
@@ -255,7 +259,7 @@ export default function PillNav({
           </a>
         )}
 
-        <div className="pill-nav-items desktop-only">
+        <div className="pill-nav-items hidden md:flex">
           <ul className="pill-list" role="menubar">
             {items.map((item, i) => {
               const isActive = activeHref === item.href;
@@ -323,7 +327,7 @@ export default function PillNav({
         </div>
 
         <button
-          className="mobile-menu-button mobile-only"
+          className="mobile-menu-button md:hidden flex"
           onClick={toggleMobileMenu}
           aria-label="Toggle menu"
           ref={hamburgerRef}
@@ -333,7 +337,7 @@ export default function PillNav({
         </button>
       </nav>
 
-      <div className="mobile-menu-popover mobile-only" ref={mobileMenuRef} style={cssVars}>
+      <div className="mobile-menu-popover md:hidden" ref={mobileMenuRef} style={cssVars}>
         <ul className="mobile-menu-list">
           {items.map((item, i) => (
             <li key={item.href || `mobile-item-${i}`}>
@@ -341,7 +345,7 @@ export default function PillNav({
                 <Link
                   to={item.href}
                   className={`mobile-menu-link${activeHref === item.href ? ' is-active' : ''}`}
-                  onClick={() => setIsMobileMenuOpen(false)}
+                  onClick={closeMobileMenu}
                 >
                   {item.label}
                 </Link>
@@ -349,7 +353,7 @@ export default function PillNav({
                 <a
                   href={item.href}
                   className={`mobile-menu-link${activeHref === item.href ? ' is-active' : ''}`}
-                  onClick={() => setIsMobileMenuOpen(false)}
+                  onClick={closeMobileMenu}
                 >
                   {item.label}
                 </a>
