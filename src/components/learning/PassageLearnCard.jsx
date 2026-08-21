@@ -27,6 +27,7 @@ export default function PassageLearnCard({ passage }) {
           <img
             src={passage.image}
             alt={passage.title}
+            loading="lazy"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
           />
         ) : (
