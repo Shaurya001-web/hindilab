@@ -17,7 +17,7 @@ export function useReadingPractice() {
   const [apiError, setApiError] = useState(null);
 
   const recorder = useAudioRecorder();
-  const { playAudio, isPlaying, stop: stopAudio } = useAudioPlayer();
+  const { playAudio, queueAudioChunk, isPlaying, stop: stopAudio } = useAudioPlayer();
   const recordingStartRef = useRef(null);
 
   /**
@@ -43,7 +43,9 @@ export function useReadingPractice() {
    * Stop recording and send to backend for analysis.
    */
   const stopAndAnalyze = useCallback(async (referenceText) => {
-    const blob = await recorder.stopRecording();
+    const result = await recorder.stopRecording();
+    const blob = result?.blob || null;
+    const clientTranscript = result?.webSpeechTranscript || '';
     const durationSec = recordingStartRef.current
       ? (Date.now() - recordingStartRef.current) / 1000
       : null;
@@ -61,6 +63,9 @@ export function useReadingPractice() {
       const formData = new FormData();
       formData.append('audio', audioToUse, 'recording.webm');
       formData.append('referenceText', referenceText);
+      if (clientTranscript) {
+        formData.append('clientTranscript', clientTranscript);
+      }
       if (durationSec) {
         formData.append('duration', durationSec.toString());
       }
@@ -71,17 +76,47 @@ export function useReadingPractice() {
       });
 
       if (response.ok) {
-        const result = await response.json();
-        setScoreResult(result);
-        setAttempts((prev) => [
-          ...prev,
-          { score: result.finalScore, timestamp: Date.now() },
-        ]);
-        setState(RECORDING_STATES.RESULT);
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
 
-        // Auto-play the tutor's feedback voice
-        if (result.tutorFeedbackAudio || result.tutorFeedbackText) {
-          playAudio(result.tutorFeedbackAudio, result.tutorFeedbackText);
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\\n');
+          buffer = lines.pop(); // last element is either empty string or incomplete chunk
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const event = JSON.parse(line);
+              
+              if (event.type === 'score') {
+                // Initialize the result with the score and empty tutorFeedbackText
+                const result = { ...event, tutorFeedbackText: '' };
+                setScoreResult(result);
+                setAttempts((prev) => [
+                  ...prev,
+                  { score: event.finalScore, timestamp: Date.now() },
+                ]);
+                setState(RECORDING_STATES.RESULT);
+              } else if (event.type === 'audio_chunk') {
+                // Append text and queue audio
+                setScoreResult(prev => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        tutorFeedbackText: (prev.tutorFeedbackText || '') + event.text
+                    };
+                });
+                queueAudioChunk(event.audio, event.text);
+              }
+            } catch(e) { 
+              console.error("JSON parse error on stream chunk", e, line);
+            }
+          }
         }
       } else {
         const errData = await response.json().catch(() => ({}));

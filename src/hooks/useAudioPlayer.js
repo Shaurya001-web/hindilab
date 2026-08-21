@@ -5,6 +5,7 @@ import { useState, useRef, useCallback } from 'react';
  * Uses Sarvam AI for TTS via backend proxy.
  */
 export function useAudioPlayer() {
+  const chunkQueue = useRef([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentWord, setCurrentWord] = useState(null);
   const [progress, setProgress] = useState(0);
@@ -32,21 +33,26 @@ export function useAudioPlayer() {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
+    chunkQueue.current = []; // Clear queue
     setIsPlaying(false);
     setCurrentWord(null);
     setProgress(0);
     if (animationRef.current) cancelAnimationFrame(animationRef.current);
   }, []);
 
-  const playAudio = useCallback(async (audioUrl, text) => {
-    stop();
-    setCurrentWord(text);
+  const playNextChunk = useCallback(async () => {
+    if (chunkQueue.current.length === 0) {
+      setIsPlaying(false);
+      return;
+    }
 
-    // If an audio file URL or base64 data is provided, play it
+    const { audioUrl, text } = chunkQueue.current.shift();
+    setCurrentWord(text);
+    setIsPlaying(true);
+
     if (audioUrl) {
       try {
         let audioSrc = audioUrl;
-        // If raw base64 string without data URI prefix, add it
         if (typeof audioUrl === 'string' && !audioUrl.startsWith('http') && !audioUrl.startsWith('data:') && !audioUrl.startsWith('blob:') && !audioUrl.startsWith('/')) {
           audioSrc = `data:audio/wav;base64,${audioUrl}`;
         }
@@ -55,66 +61,39 @@ export function useAudioPlayer() {
         audioRef.current = audio;
 
         audio.addEventListener('loadedmetadata', () => setDuration(audio.duration));
-        audio.addEventListener('ended', stop);
+        audio.addEventListener('ended', playNextChunk);
         audio.addEventListener('error', (e) => {
-          console.warn('Audio play error event, falling back to TTS:', e);
-          if (text) {
-            speakHindiFallback(text);
-          } else {
-            stop();
-          }
+          console.warn('Audio chunk error, skipping to next:', e);
+          playNextChunk();
         });
 
-        setIsPlaying(true);
         await audio.play();
         updateProgress();
-        return;
       } catch (err) {
-        console.warn('Direct audio play failed, trying TTS fallback:', err);
-        if (text) {
-          speakHindiFallback(text);
-          return;
-        }
+        console.warn('Audio play failed, skipping to next:', err);
+        playNextChunk();
       }
+    } else if (text) {
+        speakHindiFallback(text);
+    } else {
+        playNextChunk();
     }
+  }, [updateProgress]);
 
-    // Otherwise, or if fallback, try Sarvam AI TTS
-    if (text) {
-      setIsPlaying(true);
-      try {
-        const response = await fetch('/api/tts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text })
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data.base64Audio) {
-            // Play base64 audio
-            const audioSrc = `data:audio/wav;base64,${data.base64Audio}`;
-            const audio = new Audio(audioSrc);
-            audioRef.current = audio;
-            
-            audio.addEventListener('ended', stop);
-            audio.addEventListener('error', () => {
-              console.warn('Sarvam audio playback failed');
-              speakHindiFallback(text);
-            });
-
-            await audio.play();
-            updateProgress();
-            return;
-          }
+  const queueAudioChunk = useCallback((audioUrl, text) => {
+    chunkQueue.current.push({ audioUrl, text });
+    setIsPlaying(prevIsPlaying => {
+        if (!prevIsPlaying) {
+            setTimeout(playNextChunk, 0); // Start playing if idle
         }
-      } catch (err) {
-        console.error('Sarvam TTS failed:', err);
-      }
+        return true; 
+    });
+  }, [playNextChunk]);
 
-      // Fallback to browser TTS if Sarvam fails
-      speakHindiFallback(text);
-    }
-  }, [stop, updateProgress]);
+  const playAudio = useCallback(async (audioUrl, text) => {
+    stop(); // Clear any existing queue
+    queueAudioChunk(audioUrl, text);
+  }, [stop, queueAudioChunk]);
 
   const speakHindiFallback = (text) => {
     if ('speechSynthesis' in window) {
@@ -122,11 +101,11 @@ export function useAudioPlayer() {
       utterance.lang = 'hi-IN';
       utterance.rate = 0.8;
       utterance.onstart = () => setIsPlaying(true);
-      utterance.onend = stop;
-      utterance.onerror = stop;
+      utterance.onend = playNextChunk; // Proceed to next chunk in queue
+      utterance.onerror = playNextChunk;
       window.speechSynthesis.speak(utterance);
     } else {
-      stop();
+      playNextChunk();
     }
   };
 
@@ -136,6 +115,7 @@ export function useAudioPlayer() {
     duration,
     currentWord,
     playAudio,
+    queueAudioChunk,
     stop
   };
 }

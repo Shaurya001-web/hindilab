@@ -210,40 +210,70 @@ router.post('/pronunciation-score', upload.single('audio'), async (req, res) => 
       return res.status(400).json({ error: 'Audio file is required' });
     }
 
+    // Set headers for NDJSON streaming
+    res.writeHead(200, {
+      'Content-Type': 'application/x-ndjson',
+      'Transfer-Encoding': 'chunked'
+    });
+
     if (process.env.SARVAM_API_KEY && process.env.MOCK_MODE !== 'true') {
-      // Create a Blob from the Buffer for the native FormData
-      const audioBlob = new Blob([audioBuffer], { type: 'audio/webm' });
-      
-      const formData = new FormData();
-      formData.append('file', audioBlob, 'audio.webm');
-      // Sarvam requires model name
-      formData.append('model', 'saaras:v3');
+      const clientTranscript = req.body.clientTranscript;
+      let transcript = "";
 
-      const response = await fetch('https://api.sarvam.ai/speech-to-text', {
-        method: 'POST',
-        headers: {
-          'api-subscription-key': process.env.SARVAM_API_KEY,
-        },
-        body: formData,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const transcript = data.transcript || "";
+      if (clientTranscript && clientTranscript.trim().length > 0) {
+        transcript = clientTranscript;
+      } else {
+        const audioBlob = new Blob([audioBuffer], { type: 'audio/webm' });
         
-        const { wordResults, extraWords, stats } = compareWords(referenceText, transcript);
-        const scores = calculateScore(referenceText, transcript);
+        const formData = new FormData();
+        formData.append('file', audioBlob, 'audio.webm');
+        formData.append('model', 'saaras:v3');
 
-        // Calculate reading speed if duration provided
-        let readingSpeed = null;
-        if (duration && duration > 0 && stats.correct > 0) {
-          readingSpeed = Math.round((stats.correct / duration) * 60); // words per minute
+        const response = await fetch('https://api.sarvam.ai/speech-to-text', {
+          method: 'POST',
+          headers: {
+            'api-subscription-key': process.env.SARVAM_API_KEY,
+          },
+          body: formData,
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          transcript = data.transcript || "";
+        } else {
+          const errData = await response.text();
+          console.error('Sarvam STT API failed:', errData);
+          if (!res.headersSent) {
+              return res.status(502).json({ error: 'Sarvam Speech-to-Text service failed temporarily' });
+          } else {
+              return res.end();
+          }
         }
+      }
 
-        // Call Gemini for super-fast, concise conversational tutor feedback
-        let tutorFeedbackText = null;
-        let tutorFeedbackAudio = null;
-        
+      const { wordResults, extraWords, stats } = compareWords(referenceText, transcript);
+      const scores = calculateScore(referenceText, transcript);
+
+      let readingSpeed = null;
+      if (duration && duration > 0 && stats.correct > 0) {
+        readingSpeed = Math.round((stats.correct / duration) * 60);
+      }
+
+        // Send Phase 1: Score & Transcript immediately
+        const scoreEvent = {
+          type: 'score',
+          transcript,
+          ...scores,
+          feedback: getHindiFeedback(scores.finalScore),
+          wordResults,
+          extraWords,
+          wordStats: stats,
+          readingSpeed,
+          _source: 'sarvam'
+        };
+        res.write(JSON.stringify(scoreEvent) + '\\n');
+
+        // Phase 2: Gemini Stream + TTS Chunking
         const ai = getGeminiClient();
         if (ai && transcript && transcript.trim().length > 0) {
           try {
@@ -274,7 +304,7 @@ router.post('/pronunciation-score', upload.single('audio'), async (req, res) => 
 
 नियम: केवल शुद्ध देवनागरी हिंदी। कोई बुलेट, तारे, हेडिंग, या अंग्रेज़ी नहीं। यह सीधा आवाज़ में बोला जाएगा।`;
             
-            const llmResponse = await ai.models.generateContent({
+            const stream = await ai.models.generateContentStream({
               model: 'gemini-2.5-flash',
               contents: prompt,
               config: {
@@ -283,67 +313,80 @@ router.post('/pronunciation-score', upload.single('audio'), async (req, res) => 
               }
             });
             
-            tutorFeedbackText = llmResponse.text?.trim();
+            let buffer = '';
             
-            // Get fast TTS for the short tutor feedback using Sarvam bulbul:v3
-            if (tutorFeedbackText && process.env.SARVAM_API_KEY) {
-              const safeTtsInput = tutorFeedbackText;
-
-              const ttsResponse = await fetch('https://api.sarvam.ai/text-to-speech', {
-                method: 'POST',
-                headers: {
-                  'api-subscription-key': process.env.SARVAM_API_KEY,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  inputs: [safeTtsInput],
-                  target_language_code: "hi-IN",
-                  speaker: "shreya",
-                  pace: 1.0,
-                  speech_sample_rate: 8000,
-                  enable_preprocessing: true,
-                  model: "bulbul:v3"
-                }),
-              });
-              
-              if (ttsResponse.ok) {
-                const ttsData = await ttsResponse.json();
-                if (ttsData.audios && ttsData.audios.length > 0) {
-                  tutorFeedbackAudio = ttsData.audios[0];
+            // Helper to call Sarvam TTS for a chunk
+            const fetchTTS = async (textChunk) => {
+              if (!textChunk.trim()) return;
+              try {
+                const ttsResponse = await fetch('https://api.sarvam.ai/text-to-speech', {
+                  method: 'POST',
+                  headers: {
+                    'api-subscription-key': process.env.SARVAM_API_KEY,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    inputs: [textChunk],
+                    target_language_code: "hi-IN",
+                    speaker: "shreya",
+                    pace: 1.0,
+                    speech_sample_rate: 8000,
+                    enable_preprocessing: true,
+                    model: "bulbul:v3"
+                  }),
+                });
+                if (ttsResponse.ok) {
+                  const ttsData = await ttsResponse.json();
+                  if (ttsData.audios && ttsData.audios.length > 0) {
+                    res.write(JSON.stringify({
+                      type: 'audio_chunk',
+                      text: textChunk,
+                      audio: ttsData.audios[0]
+                    }) + '\\n');
+                  }
+                } else {
+                  console.error("Sarvam TTS chunk failed:", await ttsResponse.text());
                 }
-              } else {
-                console.error("Sarvam TTS for tutor failed:", await ttsResponse.text());
+              } catch (err) {
+                console.error("TTS fetch error:", err);
+              }
+            };
+
+            for await (const chunk of stream) {
+              const text = chunk.text;
+              if (!text) continue;
+              buffer += text;
+              
+              // Check for sentence boundaries
+              const match = buffer.match(/(.*?[।.\!\?])(.*)/);
+              if (match) {
+                const sentence = match[1];
+                buffer = match[2]; // keep the rest in buffer
+                await fetchTTS(sentence);
               }
             }
+            
+            // Flush remaining
+            if (buffer.trim().length > 0) {
+              await fetchTTS(buffer.trim());
+            }
+
           } catch (err) {
             console.error("Gemini Tutor Feedback Error:", err);
           }
         }
-
-        return res.json({
-          transcript,
-          ...scores,
-          feedback: getHindiFeedback(scores.finalScore),
-          wordResults,
-          extraWords,
-          wordStats: stats,
-          readingSpeed,
-          tutorFeedbackText,
-          tutorFeedbackAudio,
-          _source: 'sarvam'
-        });
-      } else {
-        const errData = await response.text();
-        console.error('Sarvam STT API failed:', errData);
-        return res.status(502).json({ error: 'Sarvam Speech-to-Text service failed temporarily' });
-      }
+        
+      return res.end();
     }
+    
+    // Mock Mode
     const accuracy = Math.floor(Math.random() * 30) + 65;
     const fluency = Math.floor(Math.random() * 25) + 70;
     const completeness = Math.floor(Math.random() * 20) + 75;
     const finalScore = Math.round(accuracy * 0.6 + fluency * 0.2 + completeness * 0.2);
 
-    res.json({
+    const scoreEvent = {
+      type: 'score',
       transcript: "मॉक ट्रांसक्रिप्ट (Mock Transcript)",
       accuracy,
       fluency,
@@ -355,10 +398,25 @@ router.post('/pronunciation-score', upload.single('audio'), async (req, res) => 
       wordStats: { correct: 0, mispronounced: 0, missing: 0, extra: 0, total: 0 },
       readingSpeed: null,
       _mock: true,
-    });
+    };
+    res.write(JSON.stringify(scoreEvent) + '\\n');
+    
+    // Simulate streaming mock audio
+    setTimeout(() => {
+        res.write(JSON.stringify({ type: 'audio_chunk', text: 'यह एक मॉक फीडबैक है। ', audio: null }) + '\\n');
+        setTimeout(() => {
+            res.write(JSON.stringify({ type: 'audio_chunk', text: 'आपका प्रयास अच्छा था।', audio: null }) + '\\n');
+            res.end();
+        }, 1000);
+    }, 1000);
+
   } catch (error) {
     console.error('Pronunciation scoring error:', error);
-    res.status(500).json({ error: 'Pronunciation scoring failed unexpectedly' });
+    if (!res.headersSent) {
+        res.status(500).json({ error: 'Pronunciation scoring failed unexpectedly' });
+    } else {
+        res.end();
+    }
   }
 });
 

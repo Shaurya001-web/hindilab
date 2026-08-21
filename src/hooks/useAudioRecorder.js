@@ -10,6 +10,7 @@ export function useAudioRecorder() {
   const [audioUrl, setAudioUrl] = useState(null);
   const [error, setError] = useState(null);
   const [analyserData, setAnalyserData] = useState(new Uint8Array(32).fill(128));
+  const [webSpeechTranscript, setWebSpeechTranscript] = useState(null);
 
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
@@ -17,6 +18,8 @@ export function useAudioRecorder() {
   const analyserRef = useRef(null);
   const animationRef = useRef(null);
   const audioContextRef = useRef(null);
+  const speechRecognitionRef = useRef(null);
+  const transcriptRef = useRef('');
 
   const updateAnalyser = useCallback(() => {
     if (analyserRef.current) {
@@ -39,7 +42,9 @@ export function useAudioRecorder() {
       setError(null);
       setAudioBlob(null);
       setAudioUrl(null);
+      setWebSpeechTranscript(null); // Reset transcript
       chunksRef.current = [];
+      transcriptRef.current = '';
 
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -50,6 +55,38 @@ export function useAudioRecorder() {
         },
       });
       streamRef.current = stream;
+
+      // Start Web Speech API in parallel
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        speechRecognitionRef.current = new SpeechRecognition();
+        speechRecognitionRef.current.lang = 'hi-IN';
+        speechRecognitionRef.current.continuous = true;
+        speechRecognitionRef.current.interimResults = true;
+
+        speechRecognitionRef.current.onresult = (event) => {
+          let finalTrans = '';
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              finalTrans += event.results[i][0].transcript;
+            }
+          }
+          if (finalTrans) {
+            transcriptRef.current += finalTrans + ' ';
+            setWebSpeechTranscript(transcriptRef.current.trim());
+          }
+        };
+        
+        speechRecognitionRef.current.onerror = (e) => {
+          console.warn("Web Speech API error:", e.error);
+        };
+        
+        try {
+          speechRecognitionRef.current.start();
+        } catch (e) {
+          console.warn("Failed to start Web Speech API", e);
+        }
+      }
 
       // Set up audio analysis for waveform
       audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
@@ -75,8 +112,6 @@ export function useAudioRecorder() {
         }
       };
 
-      recorder.onstop = null; // Replaced by the Promise in stopRecording
-
       recorder.start(100); // Collect data every 100ms
       setIsRecording(true);
     } catch (err) {
@@ -91,8 +126,14 @@ export function useAudioRecorder() {
 
   const stopRecording = useCallback(() => {
     return new Promise((resolve) => {
+      if (speechRecognitionRef.current) {
+        try {
+            speechRecognitionRef.current.stop();
+        } catch(e) {}
+      }
+
       if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
-        resolve(null);
+        resolve({ blob: null, webSpeechTranscript: transcriptRef.current.trim() });
         return;
       }
 
@@ -101,7 +142,7 @@ export function useAudioRecorder() {
         const blob = new Blob(chunksRef.current, { type: mimeType });
         setAudioBlob(blob);
         setAudioUrl(URL.createObjectURL(blob));
-        resolve(blob);
+        resolve({ blob, webSpeechTranscript: transcriptRef.current.trim() });
       };
 
       mediaRecorderRef.current.stop();
@@ -132,6 +173,8 @@ export function useAudioRecorder() {
     }
     setAudioBlob(null);
     setAudioUrl(null);
+    setWebSpeechTranscript(null);
+    transcriptRef.current = '';
     setError(null);
   }, [audioUrl]);
 
@@ -141,6 +184,9 @@ export function useAudioRecorder() {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
       if (audioContextRef.current) audioContextRef.current.close();
+      if (speechRecognitionRef.current) {
+          try { speechRecognitionRef.current.stop(); } catch(e) {}
+      }
       if (audioUrl) URL.revokeObjectURL(audioUrl);
     };
   }, []);
@@ -151,6 +197,7 @@ export function useAudioRecorder() {
     audioUrl,
     error,
     analyserData,
+    webSpeechTranscript,
     startRecording,
     stopRecording,
     resetRecording,
