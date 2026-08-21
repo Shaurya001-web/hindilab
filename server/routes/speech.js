@@ -5,8 +5,11 @@ import { GoogleGenAI } from '@google/genai';
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Initialize Gemini
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+function getGeminiClient() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  return new GoogleGenAI({ apiKey });
+}
 
 function levenshteinDistance(s1, s2) {
   const m = s1.length;
@@ -121,39 +124,61 @@ function compareWords(referenceText, transcriptText) {
 }
 
 function calculateScore(reference, transcript) {
-  // Normalize strings
   const ref = normalizeHindi(reference);
   const trans = normalizeHindi(transcript);
 
-  if (!trans) return { accuracy: 0, fluency: 0, completeness: 0, finalScore: 0 };
-
-  const distance = levenshteinDistance(ref, trans);
-  const maxLength = Math.max(ref.length, trans.length);
-
-  // Convert distance to a percentage score (0-100)
-  let accuracy = Math.max(0, Math.round((1 - distance / maxLength) * 100));
-
-  // If accuracy is too low (e.g. completely different word, but matching a single vowel), fail it completely
-  if (accuracy < 40) {
-    return { accuracy, fluency: 0, completeness: 0, finalScore: accuracy };
+  if (!trans || trans.length === 0) {
+    return { accuracy: 0, fluency: 0, completeness: 0, finalScore: 0 };
   }
 
-  // Word-level comparison for fluency and completeness
   const refWords = splitWords(reference);
   const transWords = splitWords(transcript);
 
-  // Completeness: what fraction of reference words were captured
-  const { stats } = compareWords(reference, transcript);
-  const completeness = refWords.length > 0
-    ? Math.round(((stats.correct + stats.mispronounced) / refWords.length) * 100)
+  if (refWords.length === 0) {
+    return { accuracy: 0, fluency: 0, completeness: 0, finalScore: 0 };
+  }
+
+  const { wordResults, extraWords, stats } = compareWords(reference, transcript);
+
+  // Word-level scoring on attempted words
+  let wordScoreSum = 0;
+  for (const w of wordResults) {
+    if (w.status === 'correct') {
+      wordScoreSum += 100;
+    } else if (w.status === 'mispronounced') {
+      wordScoreSum += (w.score || 60);
+    }
+  }
+
+  const attemptedWords = stats.correct + stats.mispronounced;
+  const completeness = Math.min(100, Math.round((attemptedWords / refWords.length) * 100));
+
+  // Word accuracy among the attempted words
+  const accuracy = attemptedWords > 0 
+    ? Math.round(wordScoreSum / attemptedWords) 
     : 0;
 
-  // Fluency: based on word order preservation and no extra words
-  const orderScore = stats.total > 0 ? (stats.correct / stats.total) : 0;
-  const extraPenalty = stats.extra > 0 ? Math.min(0.2, stats.extra * 0.05) : 0;
-  const fluency = Math.min(100, Math.max(0, Math.round((orderScore * 0.8 + 0.2 - extraPenalty) * 100)));
+  // Fluency: sequence and penalizing unrelated filler words
+  const extraPenalty = stats.extra > 0 ? Math.min(20, stats.extra * 4) : 0;
+  const fluency = Math.max(0, Math.min(100, accuracy - extraPenalty));
 
-  const finalScore = Math.round(accuracy * 0.6 + fluency * 0.2 + completeness * 0.2);
+  // Fair scoring: rewards partial reading appropriately (50% read correctly -> ~55-65 score)
+  let finalScore = 0;
+  if (attemptedWords > 0) {
+    const rawRatio = (stats.correct * 100 + stats.mispronounced * 60) / (refWords.length * 100);
+    const attemptRatio = attemptedWords / refWords.length;
+    
+    // Base score from correct words ratio
+    finalScore = Math.round(rawRatio * 100);
+
+    // If child read a good chunk (e.g. 40%+ of words) with high word accuracy, give encouraging benchmark
+    if (attemptRatio >= 0.35 && accuracy >= 65) {
+      const benchmarkScore = Math.round(40 + (attemptRatio * 45) * (accuracy / 100));
+      finalScore = Math.max(finalScore, benchmarkScore);
+    }
+  }
+
+  finalScore = Math.min(100, Math.max(0, finalScore));
 
   return { accuracy, fluency, completeness, finalScore };
 }
@@ -161,8 +186,8 @@ function calculateScore(reference, transcript) {
 function getHindiFeedback(score) {
   if (score >= 90) return { emoji: '🌟', message: 'उत्कृष्ट उच्चारण!', level: 'excellent' };
   if (score >= 75) return { emoji: '👏', message: 'बहुत अच्छा!', level: 'great' };
-  if (score >= 60) return { emoji: '👍', message: 'अच्छा प्रयास!', level: 'good' };
-  if (score >= 40) return { emoji: '💪', message: 'थोड़ा और अभ्यास करें', level: 'practice' };
+  if (score >= 50) return { emoji: '👍', message: 'अच्छा प्रयास!', level: 'good' };
+  if (score >= 30) return { emoji: '💪', message: 'थोड़ा और अभ्यास करें', level: 'practice' };
   return { emoji: '🔄', message: 'फिर से प्रयास करें', level: 'retry' };
 }
 
@@ -206,53 +231,88 @@ router.post('/pronunciation-score', upload.single('audio'), async (req, res) => 
         const data = await response.json();
         const transcript = data.transcript || "";
         
-        const scores = calculateScore(referenceText, transcript);
         const { wordResults, extraWords, stats } = compareWords(referenceText, transcript);
+        const scores = calculateScore(referenceText, transcript);
 
         // Calculate reading speed if duration provided
         let readingSpeed = null;
-        if (duration && duration > 0) {
-          const wordCount = splitWords(referenceText).length;
-          readingSpeed = Math.round((wordCount / duration) * 60); // words per minute
+        if (duration && duration > 0 && stats.correct > 0) {
+          readingSpeed = Math.round((stats.correct / duration) * 60); // words per minute
         }
 
-        // Call Gemini for conversational tutor feedback
+        // Call Gemini for super-fast, concise conversational tutor feedback
         let tutorFeedbackText = null;
         let tutorFeedbackAudio = null;
         
-        if (process.env.GEMINI_API_KEY && transcript && transcript.trim().length > 0) {
+        const ai = getGeminiClient();
+        if (ai && transcript && transcript.trim().length > 0) {
           try {
-            const prompt = `You are a friendly Hindi language tutor for children. The child was supposed to read this text: "${referenceText}". They actually read this: "${transcript}". Give them very short (1-2 sentences max), encouraging feedback in Hindi (Devanagari script) on their reading. If they made a mistake (like substituting or skipping a word), gently tell them the correct pronunciation. If it was perfect, praise them enthusiastically!`;
+            const mispronouncedWords = wordResults
+              .filter(w => w.status === 'mispronounced')
+              .map(w => `"${w.word}" (सुना गया: "${w.heard || ''}")`)
+              .slice(0, 3)
+              .join(', ');
+
+            const missingWords = wordResults
+              .filter(w => w.status === 'missing')
+              .map(w => `"${w.word}"`)
+              .slice(0, 3)
+              .join(', ');
+
+            const prompt = `आप एक हिंदी उच्चारण शिक्षक हैं। विद्यार्थी ने एक वाक्य पढ़ा है।
+
+पाठ: "${referenceText}"
+विद्यार्थी ने बोला: "${transcript}"
+स्कोर: ${scores.finalScore}%
+गलत शब्द: ${mispronouncedWords || "कोई नहीं"}
+छूटे शब्द: ${missingWords || "कोई नहीं"}
+
+ठीक 3 वाक्यों में जवाब दें, एक भी वाक्य ज़्यादा या कम नहीं:
+वाक्य 1: प्रोत्साहन दें और बताएं कि कुल मिलाकर प्रयास कैसा रहा।
+वाक्य 2: बताएं कि कौन-से शब्द गलत थे और उन्हें सही कैसे बोलना है।
+वाक्य 3: एक बार पूरा सही वाक्य बोलकर सुनाएं, जैसे "सुनिए" कहकर।
+
+नियम: केवल शुद्ध देवनागरी हिंदी। कोई बुलेट, तारे, हेडिंग, या अंग्रेज़ी नहीं। यह सीधा आवाज़ में बोला जाएगा।`;
             
             const llmResponse = await ai.models.generateContent({
               model: 'gemini-2.5-flash',
               contents: prompt,
+              config: {
+                maxOutputTokens: 2000,
+                temperature: 0.7,
+              }
             });
             
-            tutorFeedbackText = llmResponse.text;
+            tutorFeedbackText = llmResponse.text?.trim();
             
-            // Get TTS for the tutor feedback
-            const ttsResponse = await fetch('https://api.sarvam.ai/text-to-speech', {
-              method: 'POST',
-              headers: {
-                'api-subscription-key': process.env.SARVAM_API_KEY,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                inputs: [tutorFeedbackText],
-                target_language_code: "hi-IN",
-                speaker: "meera",
-                pace: 1.0,
-                speech_sample_rate: 8000,
-                enable_preprocessing: true,
-                model: "bulbul:v3"
-              }),
-            });
-            
-            if (ttsResponse.ok) {
-              const ttsData = await ttsResponse.json();
-              if (ttsData.audios && ttsData.audios.length > 0) {
-                tutorFeedbackAudio = ttsData.audios[0];
+            // Get fast TTS for the short tutor feedback using Sarvam bulbul:v3
+            if (tutorFeedbackText && process.env.SARVAM_API_KEY) {
+              const safeTtsInput = tutorFeedbackText;
+
+              const ttsResponse = await fetch('https://api.sarvam.ai/text-to-speech', {
+                method: 'POST',
+                headers: {
+                  'api-subscription-key': process.env.SARVAM_API_KEY,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  inputs: [safeTtsInput],
+                  target_language_code: "hi-IN",
+                  speaker: "shreya",
+                  pace: 1.0,
+                  speech_sample_rate: 8000,
+                  enable_preprocessing: true,
+                  model: "bulbul:v3"
+                }),
+              });
+              
+              if (ttsResponse.ok) {
+                const ttsData = await ttsResponse.json();
+                if (ttsData.audios && ttsData.audios.length > 0) {
+                  tutorFeedbackAudio = ttsData.audios[0];
+                }
+              } else {
+                console.error("Sarvam TTS for tutor failed:", await ttsResponse.text());
               }
             }
           } catch (err) {
@@ -324,8 +384,8 @@ router.post('/tts', async (req, res) => {
         body: JSON.stringify({
           inputs: [text],
           target_language_code: "hi-IN",
-          speaker: "anushka",
-          pace: 1.1,
+          speaker: "shreya",
+          pace: 1.0,
           speech_sample_rate: 8000,
           enable_preprocessing: true,
           model: "bulbul:v3"

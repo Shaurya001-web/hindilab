@@ -5,8 +5,11 @@ import { GoogleGenAI } from '@google/genai';
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Initialize Gemini
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+function getGeminiClient() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  return new GoogleGenAI({ apiKey });
+}
 
 // Conversational Agent Route
 router.post('/converse', upload.single('audio'), async (req, res) => {
@@ -18,7 +21,8 @@ router.post('/converse', upload.single('audio'), async (req, res) => {
       return res.status(400).json({ error: 'Audio file is required' });
     }
 
-    if (!process.env.SARVAM_API_KEY || !process.env.GEMINI_API_KEY) {
+    const ai = getGeminiClient();
+    if (!process.env.SARVAM_API_KEY || !ai) {
       return res.status(500).json({ error: 'API keys are not configured' });
     }
 
@@ -105,7 +109,7 @@ router.post('/converse', upload.single('audio'), async (req, res) => {
       body: JSON.stringify({
         inputs: [aiResponseText],
         target_language_code: "hi-IN",
-        speaker: "meera", // using a friendly female voice
+        speaker: "shreya", // using friendly female voice
         pace: 1.0,
         speech_sample_rate: 8000,
         enable_preprocessing: true,

@@ -79,9 +79,9 @@ export function useReadingPractice() {
         ]);
         setState(RECORDING_STATES.RESULT);
 
-        // Auto-play the tutor's feedback
-        if (result.tutorFeedbackAudio) {
-          playAudio(result.tutorFeedbackAudio);
+        // Auto-play the tutor's feedback voice
+        if (result.tutorFeedbackAudio || result.tutorFeedbackText) {
+          playAudio(result.tutorFeedbackAudio, result.tutorFeedbackText);
         }
       } else {
         const errData = await response.json().catch(() => ({}));

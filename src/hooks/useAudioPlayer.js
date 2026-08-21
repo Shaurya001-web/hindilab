@@ -42,22 +42,39 @@ export function useAudioPlayer() {
     stop();
     setCurrentWord(text);
 
-    // If an audio file URL is provided, play it
+    // If an audio file URL or base64 data is provided, play it
     if (audioUrl) {
       try {
-        const audio = new Audio(audioUrl);
+        let audioSrc = audioUrl;
+        // If raw base64 string without data URI prefix, add it
+        if (typeof audioUrl === 'string' && !audioUrl.startsWith('http') && !audioUrl.startsWith('data:') && !audioUrl.startsWith('blob:') && !audioUrl.startsWith('/')) {
+          audioSrc = `data:audio/wav;base64,${audioUrl}`;
+        }
+
+        const audio = new Audio(audioSrc);
         audioRef.current = audio;
 
         audio.addEventListener('loadedmetadata', () => setDuration(audio.duration));
         audio.addEventListener('ended', stop);
-        audio.addEventListener('error', stop);
+        audio.addEventListener('error', (e) => {
+          console.warn('Audio play error event, falling back to TTS:', e);
+          if (text) {
+            speakHindiFallback(text);
+          } else {
+            stop();
+          }
+        });
 
-        await audio.play();
         setIsPlaying(true);
+        await audio.play();
         updateProgress();
         return;
       } catch (err) {
-        console.warn('Direct audio play failed:', err);
+        console.warn('Direct audio play failed, trying TTS fallback:', err);
+        if (text) {
+          speakHindiFallback(text);
+          return;
+        }
       }
     }
 

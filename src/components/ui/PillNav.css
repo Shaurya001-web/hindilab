@@ -11,10 +11,10 @@
 }
 
 .pill-nav {
-  --nav-h: 42px;
-  --logo: 36px;
-  --pill-pad-x: 18px;
-  --pill-gap: 3px;
+  --nav-h: 46px;
+  --logo: 38px;
+  --pill-pad-x: 26px;
+  --pill-gap: 6px;
   width: max-content;
   display: flex;
   align-items: center;
@@ -37,6 +37,7 @@
   height: var(--nav-h);
   background: var(--base, #000);
   border-radius: 9999px;
+  padding: 3px 10px;
 }
 
 .pill-logo {
@@ -136,13 +137,13 @@
 .pill.is-active::after {
   content: '';
   position: absolute;
-  bottom: -6px;
+  bottom: 4px;
   left: 50%;
   transform: translateX(-50%);
-  width: 12px;
-  height: 12px;
+  width: 55%;
+  height: 2.5px;
   background: var(--base, #000);
-  border-radius: 50px;
+  border-radius: 2px;
   z-index: 4;
 }
 

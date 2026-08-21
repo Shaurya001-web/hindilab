@@ -39,28 +39,49 @@ export default function ReadingScoreDisplay({
         </div>
       )}
 
-      {/* AI Tutor Feedback */}
+      {/* AI Tutor Voice Feedback Card */}
       {tutorFeedbackText && (
-        <div className="bg-gradient-to-r from-primary-50 to-secondary-50 border border-primary-200 rounded-xl p-5 w-full text-left relative overflow-hidden shadow-sm">
-          <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-primary-400 to-secondary-400" />
+        <div className="bg-gradient-to-br from-amber-50/90 via-orange-50/80 to-primary-50/90 border-2 border-primary-200/80 rounded-2xl p-5 sm:p-6 w-full text-left relative overflow-hidden shadow-md">
+          <div className="absolute top-0 left-0 w-2.5 h-full bg-gradient-to-b from-primary-500 to-amber-500" />
           <div className="flex items-start gap-4">
-            <div className="text-3xl shrink-0 mt-1">🤖</div>
-            <div className="flex-1">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs text-primary-600 font-bold tracking-wider uppercase">
-                  AI Tutor Feedback
-                </p>
-                {tutorFeedbackAudio && (
+            <div className="relative">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-primary-500 to-amber-400 text-white flex items-center justify-center text-2xl shadow-sm shrink-0">
+                👩‍🏫
+              </div>
+              {isPlaying && (
+                <span className="absolute -bottom-1 -right-1 flex h-4 w-4">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-4 w-4 bg-primary-600"></span>
+                </span>
+              )}
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-primary-500 text-white text-[11px] font-bold tracking-wide uppercase">
+                    AI हिंदी शिक्षक (Tutor)
+                  </span>
+                  {isPlaying && (
+                    <span className="text-xs font-semibold text-primary-600 animate-pulse flex items-center gap-1">
+                      <span>🔊</span> बोल रहे हैं...
+                    </span>
+                  )}
+                </div>
+
+                {(tutorFeedbackAudio || tutorFeedbackText) && (
                   <button 
-                    onClick={() => playAudio(tutorFeedbackAudio)}
-                    className="w-8 h-8 rounded-full bg-white border border-primary-200 flex items-center justify-center text-sm hover:bg-primary-50 transition-colors"
-                    title="Replay Feedback"
+                    onClick={() => playAudio(tutorFeedbackAudio, tutorFeedbackText)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white border border-primary-300 text-primary-700 font-semibold text-xs hover:border-primary-500 hover:bg-primary-50 transition-all shadow-xs cursor-pointer active:scale-95"
+                    title="शिक्षक की आवाज़ फिर से सुनें"
                   >
-                    🔊
+                    <span>{isPlaying ? '⏹' : '🔊'}</span>
+                    <span>{isPlaying ? 'सुन रहे हैं...' : 'शिक्षक की आवाज़ सुनें'}</span>
                   </button>
                 )}
               </div>
-              <p className="hindi-text text-lg text-text-primary font-medium leading-relaxed">
+
+              <p className="hindi-text text-base sm:text-lg text-text-primary font-medium leading-relaxed mt-1">
                 {tutorFeedbackText}
               </p>
             </div>

@@ -2,13 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import Button from '../ui/Button';
 import PillNav from '../ui/PillNav';
-import GlassSurface from '../ui/GlassSurface';
 
 const navItems = [
   { label: 'Home', href: '/' },
   { label: 'Learn', href: '/learn' },
   { label: 'Reading', href: '/reading' },
-  { label: 'Conversation', href: '/conversation' },
   { label: 'Dashboard', href: '/dashboard' }
 ];
 
@@ -34,28 +32,8 @@ export default function Navbar() {
 
   return (
     <nav className={`sticky top-0 z-50 transition-all duration-300 relative min-h-[64px] ${
-      isScrolled ? 'border-b border-white/30 text-white' : 'bg-white border-b border-primary-100/50'
+      isScrolled ? 'border-b border-gray-100 backdrop-blur-md bg-white/80 shadow-sm' : 'bg-transparent'
     }`}>
-      {/* Background GlassSurface layer (fades in on scroll) */}
-      <div 
-        className={`absolute inset-0 transition-opacity duration-500 pointer-events-none -z-10 ${
-          isScrolled ? 'opacity-100' : 'opacity-0'
-        }`}
-      >
-        <GlassSurface 
-          width="100%" 
-          height="100%" 
-          borderRadius={0}
-          brightness={110}
-          opacity={0.8}
-          blur={15}
-          displace={15}
-          distortionScale={-80}
-        >
-          <div />
-        </GlassSurface>
-      </div>
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="flex items-center justify-between h-16">
           
@@ -69,7 +47,7 @@ export default function Navbar() {
 
           {/* Navigation Links using PillNav */}
           <div className="flex-1 flex justify-center">
-            <div className="relative w-full max-w-md h-full flex items-center justify-center -top-2">
+            <div className="relative w-full max-w-xl h-full flex items-center justify-center">
               <PillNav
                 logo={logoSvg}
                 logoAlt="Hindi Lab Logo"

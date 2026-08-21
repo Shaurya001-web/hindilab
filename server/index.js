@@ -1,19 +1,43 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import rateLimit from 'express-rate-limit';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load .env from workspace root or server directory
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '.env') });
+dotenv.config();
+
 import geminiRoutes from './routes/gemini.js';
 import speechRoutes from './routes/speech.js';
 import agentRoutes from './routes/agent.js';
 
-dotenv.config({ path: '../.env' });
-
 const app = express();
 const PORT = process.env.PORT || 8000;
 
+app.set('trust proxy', 1);
+
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+  process.env.CORS_ORIGIN,
+].filter(Boolean);
+
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -44,16 +68,19 @@ app.use('/api', geminiRoutes);
 app.use('/api', speechRoutes);
 app.use('/api/agent', agentRoutes);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`\n🎓 HindiLab API Server running on http://localhost:${PORT}`);
-  console.log(`   Health check: http://localhost:${PORT}/api/health`);
+export default app;
 
-  if (!process.env.GEMINI_API_KEY) {
-    console.log('   ⚠️  GEMINI_API_KEY not set — running in mock mode');
-  }
-  if (!process.env.SARVAM_API_KEY) {
-    console.log('   ⚠️  SARVAM_API_KEY not set — STT/TTS running in mock mode');
-  }
-  console.log('');
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`\n🎓 HindiLab API Server running on http://localhost:${PORT}`);
+    console.log(`   Health check: http://localhost:${PORT}/api/health`);
+
+    if (!process.env.GEMINI_API_KEY) {
+      console.log('   ⚠️  GEMINI_API_KEY not set — running in mock mode');
+    }
+    if (!process.env.SARVAM_API_KEY) {
+      console.log('   ⚠️  SARVAM_API_KEY not set — STT/TTS running in mock mode');
+    }
+    console.log('');
+  });
+}

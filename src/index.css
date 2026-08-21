@@ -327,3 +327,20 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-primary-400);
 }
+
+/* ========================================
+   Dialog / Modal Styles
+   ======================================== */
+
+dialog {
+  border: none;
+  outline: none;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+}
+
