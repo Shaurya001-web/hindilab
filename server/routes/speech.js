@@ -342,6 +342,7 @@ router.post('/pronunciation-score', upload.single('audio'), async (req, res) => 
                       text: textChunk,
                       audio: ttsData.audios[0]
                     }) + '\n');
+                    return;
                   }
                 } else {
                   console.error("Sarvam TTS chunk failed:", await ttsResponse.text());
@@ -349,6 +350,12 @@ router.post('/pronunciation-score', upload.single('audio'), async (req, res) => 
               } catch (err) {
                 console.error("TTS fetch error:", err);
               }
+              // Fallback: send text even if audio fails
+              res.write(JSON.stringify({
+                type: 'audio_chunk',
+                text: textChunk,
+                audio: null
+              }) + '\n');
             };
 
             for await (const chunk of stream) {
@@ -356,12 +363,16 @@ router.post('/pronunciation-score', upload.single('audio'), async (req, res) => 
               if (!text) continue;
               buffer += text;
               
-              // Check for sentence boundaries
-              const match = buffer.match(/(.*?[।.\!\?])(.*)/);
-              if (match) {
-                const sentence = match[1];
-                buffer = match[2]; // keep the rest in buffer
-                await fetchTTS(sentence);
+              // Check for sentence boundaries and extract all complete sentences
+              while (true) {
+                const match = buffer.match(/(.*?[।.\!\?])(.*)/s);
+                if (match) {
+                  const sentence = match[1];
+                  buffer = match[2]; // keep the rest in buffer
+                  await fetchTTS(sentence);
+                } else {
+                  break;
+                }
               }
             }
             
